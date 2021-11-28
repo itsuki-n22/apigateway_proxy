@@ -1,13 +1,18 @@
----
 AWSTemplateFormatVersion: 2010-09-09
 Description: "API Gateway"
 Parameters:
   FunctionName:
     Type: String
-    Description: "test"
+    Description: "Lambda Function Name"
+    Default: "test"
   ApiName:
     Type: String
-    Description: "test-api"
+    Description: "name of API"
+    Default: "api-test"
+  ResourceName:
+    Type: String
+    Description: "name of Resource"
+    Default: "hoge"
 Resources:
   Api:
     Type: "AWS::ApiGateway::RestApi"
@@ -18,7 +23,7 @@ Resources:
     Properties:
       RestApiId: !Ref Api
       ParentId: !GetAtt Api.RootResourceId  
-      PathPart: !Sub "${FunctionName}"
+      PathPart: !Sub "${ResourceName}"
   LambdaPermission:
     Type: "AWS::Lambda::Permission"
     Properties:
@@ -31,9 +36,9 @@ Resources:
       RestApiId: !Ref Api
       ResourceId: !Ref Resource
       AuthorizationType: "None"
-      HttpMethod: "POST"
+      HttpMethod: "GET"
       Integration:
-        Type: "AWS"
-        IntegrationHttpMethod: "GET"
+        Type: "AWS_PROXY" # lambdaプロキシ統合の場合はこの値にする
+        IntegrationHttpMethod: "POST" # GETを指定していてもPOSTという項目にしないとエラーになる
         Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FunctionName}/invocations"
     DependsOn: "LambdaPermission"
