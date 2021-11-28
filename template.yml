@@ -13,6 +13,10 @@ Parameters:
     Type: String
     Description: "Name of resource"
     Default: "hoge"
+  Stage:
+    Type: String
+    Description: "Name of stage"
+    Default: "v1"
 Resources:
   Api:
     Type: "AWS::ApiGateway::RestApi"
@@ -36,9 +40,57 @@ Resources:
       RestApiId: !Ref Api
       ResourceId: !Ref Resource
       AuthorizationType: "None"
+      ApiKeyRequired: True 
       HttpMethod: "GET"
       Integration:
         Type: "AWS_PROXY" # lambdaプロキシ統合の場合はこの値にする
         IntegrationHttpMethod: "POST" # GETを指定していてもPOSTという項目にしないとエラーになる
         Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaFunctionName}/invocations"
+      MethodResponses:
+          - StatusCode: 200
+            ResponseModels:
+              application/json: Empty
     DependsOn: "LambdaPermission"
+  ApiGatewayKey:
+    Type: "AWS::ApiGateway::ApiKey"
+    DependsOn: 
+      - ApiGatewayStage
+      - Api
+    Properties:
+      Name: !Sub "${LambdaFunctionName}ApiKey"
+      Enabled: True
+      StageKeys:
+        - RestApiId: !Ref Api
+          StageName: !Ref Stage # 必須
+  ApiGatewayStage:
+    Type: "AWS::ApiGateway::Stage"
+    Properties:
+      StageName: !Ref Stage
+      RestApiId: !Ref Api
+      DeploymentId: !Ref ApiGatewayDeployment
+  # API Gateway Deployment
+  ApiGatewayDeployment:
+    Type: "AWS::ApiGateway::Deployment"
+    Description: Automatically created by the RestApi construct
+    Properties:
+      RestApiId: !Ref Api
+  # APIキーとプランが紐づくので以下の2つは必須
+  ApiGatewayUsagePlan:
+    Type: "AWS::ApiGateway::UsagePlan"
+    Properties:
+      ApiStages:
+        - ApiId: !Ref Api
+          Stage: !Ref ApiGatewayStage
+      Quota:
+        Limit: 100
+        Period: DAY
+      Throttle:
+        BurstLimit: 10
+        RateLimit: 2
+      UsagePlanName: !Sub "${LambdaFunctionName}UsagePlan"
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties: 
+      KeyId: !Ref ApiGatewayKey
+      KeyType: "API_KEY"
+      UsagePlanId: !Ref ApiGatewayUsagePlan
