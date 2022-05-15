@@ -72,6 +72,8 @@ Resources:
   ApiGatewayDeployment:
     Type: "AWS::ApiGateway::Deployment"
     Description: Automatically created by the RestApi construct
+    DependsOn: 
+      - ResourceMethod
     Properties:
       RestApiId: !Ref Api
   # APIキーとプランが紐づくので以下の2つは必須
